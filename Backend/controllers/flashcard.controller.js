@@ -1,7 +1,6 @@
-const genAI = require("../configs/gemini");
+const cohere = require("../configs/cohere");
 const flashcardModel = require("../models/flashcard.model");
 const subjectModel = require("../models/subject.model");
-
 
 const generateFlashcards = async (req, res) => {
   try {
@@ -9,12 +8,20 @@ const generateFlashcards = async (req, res) => {
     const subject = await subjectModel.findById(subjectId);
     if (!subject) return res.status(404).json({ error: "Subject not found" });
 
-    const model = genAI.getGenerativeModel({ model: "models/gemini-pro" });
+    const syllabusText = subject.syllabus.join(", ");
 
-    const prompt = `Create 5 flashcards with a question and answer each for the following syllabus:\n${subject.syllabus}`;
+    const response = await cohere.chat({
+      model: "command-r", // ← use chat-capable model
+      message: `Generate 5 flashcards with Q&A format based on this syllabus:\n${syllabusText}\n\nFormat:\nQ: ...\nA: ...`,
+    });
 
-    const result = await model.generateContent(prompt);
-    const text = await result.response.text();
+    const text = response?.body?.text?.trim();
+    if (!text) {
+      return res.status(500).json({
+        error: "No valid response from Cohere",
+        cohereResponse: response.body,
+      });
+    }
 
     const flashcardPairs = text.split("\n\n").map((card) => {
       const [questionLine, answerLine] = card.split("\n");
@@ -28,6 +35,7 @@ const generateFlashcards = async (req, res) => {
     const flashcards = await flashcardModel.insertMany(flashcardPairs);
     res.status(201).json(flashcards);
   } catch (err) {
+    console.error("Error generating flashcards:", err.message);
     res.status(500).json({ error: err.message });
   }
 };
@@ -48,6 +56,5 @@ const getFlashcardsBySubject = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-  
 
 module.exports = { generateFlashcards, getFlashcardsBySubject };
