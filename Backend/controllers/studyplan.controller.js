@@ -1,6 +1,6 @@
 const subjectModel = require("../models/subject.model");
 const studyPlanModel = require("../models/studyplan.model");
-const cohere = require("../configs/cohere");
+const openai = require("../configs/gemini");
 
 const generateStudyPlan = async (req, res) => {
   try {
@@ -11,16 +11,21 @@ const generateStudyPlan = async (req, res) => {
 
     const prompt = `Create a 7-day study plan with daily tasks for the following syllabus topics:\n${subject.syllabus.join(
       ", "
-    )}\nDeadline: ${subject.deadline.toDateString()}. Format the output like:\n\nDay 1:\n- Task 1\n- Task 2\n\nDay 2:\n- Task 1\n...`;
+    )}\nDeadline: ${subject.deadline.toDateString()}.\nFormat the output like:\n\nDay 1:\n- Task 1\n- Task 2\n\nDay 2:\n- Task 1\n...`;
 
-    const response = await cohere.generate({
-      model: "command-r", // Most capable free-tier model
-      prompt,
-      max_tokens: 600,
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
       temperature: 0.8,
+      max_tokens: 600,
     });
 
-    const text = response.body.generations[0].text;
+    const text = response.choices[0].message.content;
     const planLines = text.split("\n").filter(Boolean);
 
     let currentDay = null;
@@ -53,6 +58,7 @@ const generateStudyPlan = async (req, res) => {
 
     res.status(201).json(savedPlans);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 };

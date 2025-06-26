@@ -1,4 +1,4 @@
-const genAI = require("../configs/cohere");
+const genAI = require("../configs/gemini");
 const quizModel = require("../models/quiz.model");
 const subjectModel = require("../models/subject.model");
 
